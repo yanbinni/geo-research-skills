@@ -1,0 +1,6 @@
+config.json
+.litsearch/
+.env
+.env.*
+*.sqlite*
+__pycache__/

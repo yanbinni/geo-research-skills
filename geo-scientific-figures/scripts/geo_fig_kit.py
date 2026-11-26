@@ -399,6 +399,25 @@ def add_aligned_colorbar(
     return colorbar
 
 
+def set_clipped_colorbar_ticks(
+    colorbar: Colorbar, ticks: Sequence[float], clip_low: bool = False,
+    clip_high: bool = False, fmt: str = "{:g}",
+) -> None:
+    """设置色条刻度。发生截尾的一侧须提供对应的范围端点刻度。"""
+    values = tuple(ticks)
+    labels = [fmt.format(value) for value in values]
+    if values and (clip_low or clip_high):
+        low = values.index(min(values))
+        high = values.index(max(values))
+        if clip_low and clip_high and low == high:
+            raise ValueError("双侧截尾需要两个不同的端点刻度。")
+        if clip_low:
+            labels[low] = f"≤ {labels[low]}"
+        if clip_high:
+            labels[high] = f"≥ {labels[high]}"
+    colorbar.set_ticks(values, labels=labels)
+
+
 def plot_validation_scatter(
     ax: Axes, y_true: ArrayLike, y_pred: ArrayLike, mode: str = "auto", cmap: str = "viridis",
     show_stats: bool = True, stats_loc: str = "upper left", unit: str = "", rasterized: bool = True,

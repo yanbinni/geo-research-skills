@@ -48,7 +48,14 @@
 | 辅助元素 | 统一 NoData 口径和图例样式，固定比例尺、指北针和 `add_stats_box()` 的启用规则及角落位置。物理约束或关键数据遮挡确需例外时，记录原因及涉及的图件 |
 
 - **色系示例。** 物理属性相近的同向变量采用亮度走向和饱和度协调的色系，例如 `YlGn` 搭配 `BuGn`、`YlGnBu` 或 `Greens`。清淡系列避免突然加入深紫至亮黄的高反差色系。把主体数值区间放在一起比较，检查缺包回退后的实际颜色，确保相邻不同变量可辨。共享色标时统一归一化和刻度。
-- **色条端形示例。** 稍放宽整洁端点能覆盖有效极值且保留主体对比度时，优先全套 `extend="neither"`。确需截尾则先判断可比面板能否采用同一口径。对称发散色条任一端截断即用双尖 `"both"`，顺序色条按实际截断端设置，例如只截高值用 `"max"`。保留混合端形时，核对色条基线与含尖端的总长，并在交付说明中记录截尾阈值、方向和原因。
+
+### 色条截尾表达
+
+- **默认全员平头。** 单图、组合图和系列图统一用 `extend="neither"` 的矩形色条。即使显示截尾，仍用平头，让对应色条的长度与外形对齐。
+- 按质控后的原始网格统计实际溢出。分母为研究区内该变量的有效像元数，排除 NoData、非有限值和研究区外数据。分子分别取严格小于 `vmin` 或大于 `vmax` 的有效像元数，恰好等于阈值的像元不属于溢出。
+- 让刻度包含 `vmin` 和 `vmax`。用 `set_clipped_colorbar_ticks()` 按真实溢出侧设置 `clip_low` 和 `clip_high`，只给下端加 `≤` 或给上端加 `≥`。例如只截低端时显示 `≤ -700` 和 `700`。双端均有溢出才同时标记，下端和上端都无溢出时保留普通数值。
+- 在图注或交付说明中记录截尾变量、方向、阈值及各侧溢出像元占比，例如 `NEP, 1.98% of valid pixels < -700`。阈值精度与色条刻度一致。显示范围只影响着色，原始有效值仍用于统计。
+- 仅用户明确要求传统三角尖端时开启相应 `extend` 选项。下端为 `"min"`，上端为 `"max"`，只有两端均实际溢出才用 `"both"`。未溢出侧保持平头且不加不等号，图注仍报告实际比例。
 
 ## 色表按变量语义选取
 
@@ -101,7 +108,7 @@
 
 系列单图和组合图优先共用一份顶部基础样式与布局常量。批次脚本逐条读取配置，变量字典只记录输入路径、数据键、输出名、标题、色表或范围等实际差异。组合图从同一配置生成各面板，系列单图则用同一绘图入口逐文件导出。
 
-模板演示 `plot_fields.py`。`fields.npz` 存放已核验的局部等面积投影网格，包含同形状的 `cover`、`moisture` 二维数组和米制 `extent=(左, 右, 下, 上)`。示例用 `NaN` 标记外部背景。按实际项目调整顶部五块带中文注释的参数，绘图段始终读取这些配置。
+模板演示 `plot_fields.py`。`fields.npz` 存放已核验的局部等面积投影网格，包含同形状的 `cover`、`moisture` 二维数组和米制 `extent=(左, 右, 下, 上)`。示例用 `NaN` 标记外部背景。按实际项目调整顶部五块带中文注释的参数，并把脚本报告的实际截尾比例写入图注或交付说明。
 
 ```python
 import sys
@@ -135,7 +142,7 @@ PANEL_LOC = "upper left"  # 子图编号的统一锚点
 
 # 4. 变量配色与色标
 # 同向的相关变量可在 YlGn、BuGn、YlGnBu、Greens 中选协调且可辨的搭配。
-# neither 为平端。对称发散变量确需截尾时用 both，顺序变量只截高端用 max。
+# 默认 extend="neither"。刻度包含上下限，由实际溢出计算 clip_low / clip_high 并分别标 ≤ / ≥。
 SCALE_DEFAULTS = dict(unit="Fraction", vmin=0.0, vmax=1.0, vcenter=None,
                       ticks=(0, 0.5, 1), extend="neither", nodata="none")
 VARIABLES = {
@@ -151,7 +158,8 @@ SHOW_STATS, STATS_LOC = False, "upper left"  # 统计框只放在确认有空白
 def main():
     sys.path.insert(0, str(KIT_DIR))
     from geo_fig_kit import (add_aligned_colorbar, add_panel_label, add_stats_box,
-                             apply_preset, get_cmap_safe, save_figure, style_map_ax)
+                             apply_preset, get_cmap_safe, save_figure,
+                             set_clipped_colorbar_ticks, style_map_ax)
 
     with mpl.rc_context(), np.load(INPUT) as data:
         apply_preset(PRESET)
@@ -178,7 +186,14 @@ def main():
 
             cbar = add_aligned_colorbar(fig, image, ax, orientation=CBAR_ORIENTATION,
                                          size=CBAR_SIZE, pad=CBAR_PAD, label=cfg["unit"], extend=cfg["extend"])
-            cbar.set_ticks(cfg["ticks"])
+            valid = field.compressed()
+            low_count = np.count_nonzero(valid < cfg["vmin"])
+            high_count = np.count_nonzero(valid > cfg["vmax"])
+            clip_low, clip_high = low_count > 0, high_count > 0
+            set_clipped_colorbar_ticks(cbar, cfg["ticks"], clip_low=clip_low, clip_high=clip_high)
+            for count, op, limit in ((low_count, "<", cfg["vmin"]), (high_count, ">", cfg["vmax"])):
+                if count:
+                    print(f"{cfg['title']}: {count / valid.size:.2%} of valid pixels {op} {limit:g}")
             cbar.ax.tick_params(labelsize=CBAR_TICK_PT)
             cbar.outline.set_linewidth(FRAME_LW)
             if SHOW_STATS and field.count():

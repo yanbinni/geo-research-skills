@@ -36,6 +36,20 @@
 - 字体刚安装或当前环境无法发现时，可用 `font_manager.fontManager.addfont(path)` 在本次进程注册有使用许可的本地字体，再应用预设。SVG 保留文字后，接收电脑也需具备相应字库。
 - 正常坐标轴保持 `axes.unicode_minus=False` 可避免某些中文字体的 U+2212 显示方块。手写 Unicode 负号、希腊字母、度符号、乘号和数学公式仍须检查实际字形。
 
+## 套图级整体风格与布局一致性规划
+
+同画布组合图、同批次或同章节的系列单图均先确定共用规格，再编码。以一张代表图确定样式和布局，将规格应用到其余单图和同用途面板。组合图中的地图与统计轴各用相应的坐标样式。
+
+| 维度 | 套图共用规格 |
+| --- | --- |
+| 画幅与空间布局 | 同研究区系列单图锁定投影、`extent`、经纬刻度步长、网格密度与线型、成品宽高和外边距比例。共用同一套刻度定位规则，避免各图随数据重新定范围 |
+| 字体、线宽与标注 | 固定标题命名格式和字体层级，统一刻度精度、单位写法、边框与网格线宽。所有子图编号采用同一字号和锚点 |
+| 配色与色条 | 按物理意义及比较关系选择顺序或发散配色，结合有效值域和主体分位数定范围。对应色条统一方向、厚度、离图间距、刻度样式和端形。同一物理量且比较口径一致时才共享色标 |
+| 辅助元素 | 统一 NoData 口径和图例样式，固定比例尺、指北针和 `add_stats_box()` 的启用规则及角落位置。物理约束或关键数据遮挡确需例外时，记录原因及涉及的图件 |
+
+- **色系示例。** 物理属性相近的同向变量采用亮度走向和饱和度协调的色系，例如 `YlGn` 搭配 `BuGn`、`YlGnBu` 或 `Greens`。清淡系列避免突然加入深紫至亮黄的高反差色系。把主体数值区间放在一起比较，检查缺包回退后的实际颜色，确保相邻不同变量可辨。共享色标时统一归一化和刻度。
+- **色条端形示例。** 稍放宽整洁端点能覆盖有效极值且保留主体对比度时，优先全套 `extend="neither"`。确需截尾则先判断可比面板能否采用同一口径。对称发散色条任一端截断即用双尖 `"both"`，顺序色条按实际截断端设置，例如只截高值用 `"max"`。保留混合端形时，核对色条基线与含尖端的总长，并在交付说明中记录截尾阈值、方向和原因。
+
 ## 色表按变量语义选取
 
 | 数据 | 优先色表 | Matplotlib 回退 | 使用条件 |
@@ -52,10 +66,9 @@
 `get_cmap_safe()` 的内置 ColorBrewer 顺序色表包括 `YlGn`、`YlGnBu`、`YlOrRd`、`Blues`、`Greens`、`BuGn`、`OrRd`、`PuBuGn`，发散色表包括 `RdBu`、`BrBG`、`PuOr`、`PRGn`、`PiYG`、`RdYlBu`。名称大小写均可，后缀 `_r` 表示反转。回退保留顺序或发散性质，核对实际色表、正负含义及亮度梯度。[Matplotlib 内置色表](https://matplotlib.org/stable/gallery/color/colormap_reference.html) · [Scientific colour maps](https://www.fabiocrameri.ch/colourmaps/)
 
 - 禁用 `jet`、`rainbow`、`hsv` 及其反转版本。按色表的亮度梯度、物理含义和色觉缺陷预览挑选。
-- 同图中不共享色标的不同物理变量，相邻面板禁止使用同一色表。核对缺包回退后的实际颜色，避免两个名称映射到同一套颜色。南京生产力组合图可用 GPP `YlGn`、NPP `viridis` 或 `cividis`、NEP `RdBu_r` 或 `BrBG`。
-- 发散颜色先确定中心再取范围。需要用同等饱和度比较正负同幅变化时用对称范围，共对照的图统一上下限。
-- 对称发散色条禁止一端尖、一端平。只要任一端截断，使用 `extend="both"` 并在图注注明实际截断侧。若能用整洁的对称端点覆盖全值，使用 `extend="neither"`。并排图的色条方向、端部形态和位置应协调。
 - 分类颜色同时依靠明暗、轮廓、纹理或线型增强区分。黑白图以 hatch 和黑色描边区分柱或地类，交稿前查看灰度版。
+
+- 发散变量先按物理含义确定中心。需要同等强调正负同幅变化时用对称范围。
 
 ## NoData 分级
 
@@ -81,3 +94,102 @@
 - `save_figure()` 始终保留 `figsize`。`tight=True` 根据 `pad_inches` 检查裁切风险，也提示任一方向的内容占比低于 78% 且该方向最长外边距超过 0.45 in 的白边。固定目标宽度后调整高度或子图外边距，再渲染复核。用 `GridSpec`、`subplots_adjust()` 或合适的布局引擎给外置文字留空间，避免 `bbox_inches="tight"` 改写成品宽高。
 - TIFF 的分辨率可由 `formats=("tiff",)` 与 `dpi=600` 指定。EMF 需用能保留矢量并支持 EMF 的外部转换流程，检查字体、透明度和线宽。Matplotlib 工具箱按当前后端支持的格式保存。
 - 位图宽高约等于英寸宽高乘 DPI，允许整数取整差异。PDF 的页面宽度以 pt 计，除以 72 得到英寸。SVG 用 `<svg>` 的 `width`、`height` 和 `viewBox` 检查画板与内容。
+
+## 随图脚本与可调参数
+
+每次出图都把完整可重跑的 Python 脚本和最终图件保存在同一目录。单图可命名为 `plot_fig_name.py`，同一批图可共用 `plot_*.py`。脚本从约定的输入文件读数据并导出成品。把输入和工具箱指向项目中可访问的位置，跨机交付时可随项目提供工具箱。禁止仅存临时脚本或运行后删除。交付前在图件目录用新进程运行 `python plot_xxx.py` 验证。
+
+系列单图和组合图优先共用一份顶部基础样式与布局常量。批次脚本逐条读取配置，变量字典只记录输入路径、数据键、输出名、标题、色表或范围等实际差异。组合图从同一配置生成各面板，系列单图则用同一绘图入口逐文件导出。
+
+模板演示 `plot_fields.py`。`fields.npz` 存放已核验的局部等面积投影网格，包含同形状的 `cover`、`moisture` 二维数组和米制 `extent=(左, 右, 下, 上)`。示例用 `NaN` 标记外部背景。按实际项目调整顶部五块带中文注释的参数，绘图段始终读取这些配置。
+
+```python
+import sys
+from pathlib import Path
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import Normalize, TwoSlopeNorm
+from matplotlib.ticker import MultipleLocator
+
+# 1. 路径与输出
+OUT_DIR = Path(__file__).resolve().parent  # 图件与本脚本同目录
+INPUT = OUT_DIR / "fields.npz"  # 改为项目数据的位置
+KIT_DIR = OUT_DIR  # geo_fig_kit.py 所在目录，也可指向本机 Skill 的 scripts 目录
+OUT_NAME = "fields"
+FORMATS, DPI, PREVIEW_DPI = ("png", "pdf"), 300, 180
+
+# 2. 画布与排版
+PRESET, FIGSIZE = "journal-en", (7.2, 3.2)  # 宽、高均为英寸，按网格比例复核净高
+MARGINS = dict(left=0.09, right=0.97, bottom=0.20, top=0.85)
+PANEL_GAPS = dict(wspace=0.34, hspace=0.22)
+CBAR_ORIENTATION, CBAR_SIZE, CBAR_PAD = "horizontal", "4%", 0.46  # 厚度、间距
+X_LABEL, Y_LABEL = "Easting (m)", "Northing (m)"  # 按投影坐标单位修改
+X_STEP, Y_STEP = 200, 100  # 同网格地图共用刻度步长，单位 m
+
+# 3. 字号与线宽
+TITLE_PT, AX_TICK_PT, CBAR_TICK_PT, PANEL_PT, STATS_PT = 9, 7, 7, 9, 7
+FRAME_LW, GRID_LW, GRID_COLOR, GRID_LINESTYLE = 0.7, 0.35, "0.87", "-"  # 线宽单位 pt
+PANEL_LOC = "upper left"  # 子图编号的统一锚点
+
+# 4. 变量配色与色标
+# 同向的相关变量可在 YlGn、BuGn、YlGnBu、Greens 中选协调且可辨的搭配。
+# neither 为平端。对称发散变量确需截尾时用 both，顺序变量只截高端用 max。
+SCALE_DEFAULTS = dict(unit="Fraction", vmin=0.0, vmax=1.0, vcenter=None,
+                      ticks=(0, 0.5, 1), extend="neither", nodata="none")
+VARIABLES = {
+    "cover": dict(title="Vegetation cover", cmap="YlGn"),
+    "moisture": dict(title="Surface moisture", cmap="BuGn"),
+}
+
+# 5. 可选要素开关
+SHOW_SUPTITLE, SUPTITLE = False, "Surface conditions"
+SHOW_STATS, STATS_LOC = False, "upper left"  # 统计框只放在确认有空白的角落
+
+
+def main():
+    sys.path.insert(0, str(KIT_DIR))
+    from geo_fig_kit import (add_aligned_colorbar, add_panel_label, add_stats_box,
+                             apply_preset, get_cmap_safe, save_figure, style_map_ax)
+
+    with mpl.rc_context(), np.load(INPUT) as data:
+        apply_preset(PRESET)
+        fig, axes = plt.subplots(1, len(VARIABLES), figsize=FIGSIZE, squeeze=False)
+        fig.subplots_adjust(**MARGINS, **PANEL_GAPS)
+        for index, (ax, (key, overrides)) in enumerate(zip(axes.flat, VARIABLES.items())):
+            cfg = SCALE_DEFAULTS | overrides
+            field = np.ma.masked_invalid(data[key])
+            palette = get_cmap_safe(cfg["cmap"]).with_extremes(bad=cfg["nodata"])
+            limits = dict(vmin=cfg["vmin"], vmax=cfg["vmax"])
+            norm = Normalize(**limits) if cfg["vcenter"] is None else TwoSlopeNorm(vcenter=cfg["vcenter"], **limits)
+            image = ax.imshow(field, extent=data["extent"], origin="upper", aspect="equal",
+                              cmap=palette, norm=norm, rasterized=True)
+            style_map_ax(ax, linewidth=FRAME_LW)
+            ax.set_title(cfg["title"], fontsize=TITLE_PT)
+            ax.set_xlabel(X_LABEL, fontsize=AX_TICK_PT)
+            if index == 0:
+                ax.set_ylabel(Y_LABEL, fontsize=AX_TICK_PT)
+            ax.xaxis.set_major_locator(MultipleLocator(X_STEP))
+            ax.yaxis.set_major_locator(MultipleLocator(Y_STEP))
+            ax.tick_params(labelsize=AX_TICK_PT)
+            ax.grid(color=GRID_COLOR, linewidth=GRID_LW, linestyle=GRID_LINESTYLE)
+            add_panel_label(ax, chr(ord("a") + index), loc=PANEL_LOC, fontsize=PANEL_PT)
+
+            cbar = add_aligned_colorbar(fig, image, ax, orientation=CBAR_ORIENTATION,
+                                         size=CBAR_SIZE, pad=CBAR_PAD, label=cfg["unit"], extend=cfg["extend"])
+            cbar.set_ticks(cfg["ticks"])
+            cbar.ax.tick_params(labelsize=CBAR_TICK_PT)
+            cbar.outline.set_linewidth(FRAME_LW)
+            if SHOW_STATS and field.count():
+                add_stats_box(ax, f"Mean: {field.mean():.3f}", loc=STATS_LOC, fontsize=STATS_PT)
+
+        if SHOW_SUPTITLE:
+            fig.suptitle(SUPTITLE, fontsize=TITLE_PT)
+        save_figure(fig, OUT_DIR / OUT_NAME, FORMATS, dpi=DPI, preview_dpi=PREVIEW_DPI)
+        plt.close(fig)
+
+
+if __name__ == "__main__":
+    main()
+```

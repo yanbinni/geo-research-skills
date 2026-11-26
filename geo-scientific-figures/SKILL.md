@@ -97,37 +97,35 @@ python scripts/geo_fig_kit.py inspect "data/climate.nc"
 - 从交付场景推导预设。版式、目标场景或所需合规底图无法从请求推定时，只问影响成品的最少信息。
 - 用户已提供模板或目标期刊时，确认成品尺寸、最小字号、允许格式、DPI 和是否需要分面交付。
 - 地图先定范围、源 CRS、目标 CRS、底图来源和色标口径。统计先定比较单位、聚合方法和误差定义。
-- 并列对照先确认是否允许共用色标或 y 轴。用于同量纲对比时统一刻度和归一化。
+- **编码前必须完成套图级整体风格与布局一致性规划。** 范围包括同画布的组合图，以及同一批次或章节的系列单图。对应面板按用途应用同一套规格。
+  1. **画幅与空间布局。** 同研究区系列单图统一投影、地理范围（`extent`）、经纬刻度步长、网格密度与线型、成品尺寸和外边距比例。
+  2. **字体、线宽与标注。** 统一标题命名格式、字体层级、线宽、单位格式，以及 `(a)`、`(b)`、`(c)` 的字号和锚点。
+  3. **配色与色条。** 按变量物理语义和比较关系规划实际色表、范围、刻度及 `norm`。同向同类变量协调且可辨，相邻不同变量避免撞色。统一色条方向、粗细、与图面间距、刻度风格和 `extend`。只有同一物理量且比较口径一致才共享色标。
+  4. **辅助元素。** 统一 NoData 处理、图例样式，以及比例尺、指北针和 `add_stats_box()` 的启用规则与角落位置。因物理约束或版面必须调整时，记录涉及的图件和原因。
+- 若整洁端点能覆盖有效极值且保留主体对比度，套图优先全用平端。需要混用色条端形时，核对基线并说明截尾原因。详细规则见 [套图整体一致性规划](references/style-and-export.md#套图级整体风格与布局一致性规划)。
 
 ### 3. 编码出图
 
-- 把 `scripts/` 加入绘图脚本的模块搜索路径，复用 [geo_fig_kit.py](scripts/geo_fig_kit.py)。预设在创建画布和坐标轴前应用。
+- 在图件输出目录保留完整、独立入口的 `.py` 绘图脚本。单图可用 `plot_fig_name.py`，同批图可共用一个 `plot_*.py`。从脚本所在目录运行 `python plot_xxx.py` 就能重跑。脚本和依赖使用可访问的项目路径，禁止只存临时目录或运行后删除。
+- 脚本顶部必须集中设置高频可调项，用中文注释分五块，绘图逻辑统一读取这些配置。
+  1. 路径与输出，包含输入、输出目录、文件名、格式和 DPI。
+  2. 画布与排版，包含预设、成品宽高、四侧边距、面板间距、色条厚度及间距。
+  3. 字号与线宽，包含标题、轴刻度、色条刻度、子图编号、外框与网格。
+  4. 变量配色与色标，包含色表、`vmin/vmax/vcenter`、刻度、`extend`、NoData 颜色和可选替换说明。
+  5. 可选要素开关，包含总标题、统计摘要框及其位置。
+  参见 [随图脚本与可调参数](references/style-and-export.md#随图脚本与可调参数)。
+- 同系列优先用一个批次脚本驱动全部单图或组合图，共用同一套顶部基础样式与布局常量。各图的输入路径、变量名、色表、值域和标题等差异集中在配置字典中，共用项只定义一次。
+- 在脚本里配置工具箱的可访问路径，复用 [geo_fig_kit.py](scripts/geo_fig_kit.py)。预设在创建画布和坐标轴前应用。
 - 给地图或统计轴显式传入所选预设的边框宽度。经纬度标签由明确定义的坐标系驱动。
-- 选择色表后再确定 `norm`、坏值色和单位。分类使用离散图例，可加纹理和黑色描边用于灰度印刷。
+- 按套图规划应用色表、`norm`、单位与坏值样式。分类使用离散图例，可加纹理和黑色描边用于灰度印刷。
 - 输出独立预览 PNG 和目标格式。对 PDF/SVG 在 artist 层决定栅格化，保护文字和矢量线。
-
-```python
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from geo_fig_kit import PRESETS, add_panel_label, apply_preset, save_figure, style_stat_ax
-
-preset = "thesis-cn"
-with mpl.rc_context():
-    size = apply_preset(preset, "single")
-    fig, ax = plt.subplots(figsize=size, layout="constrained")
-    style_stat_ax(ax, linewidth=PRESETS[preset]["linewidth"], grid_axis="y")
-    ax.plot([1, 2, 3], [0.31, 0.42, 0.39], marker="o")
-    ax.set(xlabel="月份", ylabel="NDVI")
-    add_panel_label(ax, "a")
-    save_figure(fig, "out/ndvi", ("png", "pdf"))
-    plt.close(fig)
-```
 
 ### 4. 视觉与文件验收
 
 - 打开预览，按 [复合图与验收](references/composite-and-qa.md) 完成 8 项视觉检查。修复重叠、截断、过曝、边界错位和符号歧义后重新渲染。
 - 在最终目标宽度检查字、线和图例。核对 PDF 页面或 SVG 画板物理尺寸，并按交付 DPI 检查位图像素。
-- 交付图与绘图代码时列明预设、实际版式、数据抽样、关键制图假设，以及产生了实质影响的降级。
+- 确认最终图件同目录已有 `.py` 脚本，顶部五块配置与中文注释齐全。进入该目录，在新进程执行 `python plot_xxx.py`，核验能用约定输入和依赖重建目标格式。
+- 交付时列明预设、实际版式、数据抽样、关键制图假设和重要降级。保留混合色条端形时，注明截尾口径及原因。
 
 ## 按需加载
 
@@ -135,7 +133,7 @@ with mpl.rc_context():
 
 | 文件 | 何时打开 |
 | --- | --- |
-| [版式与导出](references/style-and-export.md) | 确定宽高、字号、字体回退、科学色表与文件格式 |
+| [版式与导出](references/style-and-export.md) | 确定套图共同规格、样式与布局常量、文件格式和随图脚本结构 |
 | [地图制图](references/cartography-core.md) | 选择投影、经纬网、审图底图、比例尺、定位或放大图 |
 | [遥感图](references/remote-sensing.md) | 读取栅格、影像合成、LULC、变化与显著性、DEM 或 NetCDF |
 | [地学统计图](references/geo-statistics.md) | 精度验证、分组柱状图、趋势和不确定性、热力图、混淆矩阵与分布对比 |

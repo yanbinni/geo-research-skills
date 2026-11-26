@@ -1,4 +1,4 @@
-# codex-skills
+# geo-research-skills
 
 面向地理、遥感与学术科研工作流的个人 Codex Skills 集合（涵盖英文多源文献检索与出版级地学科研制图）。
 
@@ -36,7 +36,7 @@
 
 把下面这句话发给 Codex：
 
-> 请从 https://github.com/yanbinni/codex-skills 的 `litsearch` 子目录安装技能。安装后请读取该目录的 INSTALL.md，运行离线检查，并引导我在本机配置所需的数据源。
+> 请从 https://github.com/yanbinni/geo-research-skills 的 `litsearch` 子目录安装技能。安装后请读取该目录的 INSTALL.md，运行离线检查，并引导我在本机配置所需的数据源。
 
 具体字段、申请入口和验证命令见 [litsearch 配置指南](litsearch/INSTALL.md)。
 
@@ -44,7 +44,7 @@
 
 把下面这句话发给 Codex：
 
-> 请从 https://github.com/yanbinni/codex-skills 的 `geo-scientific-figures` 子目录安装技能。安装后请运行 `python scripts/geo_fig_kit.py doctor` 检查本机 Python 地理依赖与中英文字体。
+> 请从 https://github.com/yanbinni/geo-research-skills 的 `geo-scientific-figures` 子目录安装技能。安装后请运行 `python scripts/geo_fig_kit.py doctor` 检查本机 Python 地理依赖与中英文字体。
 
 ## 演进说明、致谢与许可
 

@@ -1,6 +1,6 @@
 # 在这台电脑上配置 litsearch
 
-安装前确认本机 Git 可访问仓库 `yanbinni/codex-skills`。技能位于仓库的 `litsearch` 子目录。安装后从实际安装位置找到与本文同目录的 `litsearch.py`。以下命令在该目录运行，使用本机的 Python 3 和标准库。Windows 可用 `py -3` 代替 `python`，macOS/Linux 可用 `python3`。
+安装前确认本机 Git 可访问仓库 `yanbinni/geo-research-skills`。技能位于仓库的 `litsearch` 子目录。安装后从实际安装位置找到与本文同目录的 `litsearch.py`。以下命令在该目录运行，使用本机的 Python 3 和标准库。Windows 可用 `py -3` 代替 `python`，macOS/Linux 可用 `python3`。
 
 ## 1. 检查已有配置
 

@@ -8,7 +8,7 @@
 4. `transform.b != 0` 或 `transform.d != 0` 表示网格旋转或倾斜。`bounds` 是轴对齐外包框，`imshow(extent=...)` 会错放像元。先用 `WarpedVRT` 或 `rasterio.warp.reproject` 建立轴对齐目标网格，或用 affine 计算像元角点并以 `pcolormesh()` 显示实际网格。
 5. 显示用预览网格时，重新计算分辨率或像元角点需使用 `src.transform * src.transform.scale(src.width / width, src.height / height)`。仿射规则网格的外边界通常保持原范围。GCPS、RPC 或曲线网格须采用其原始地理定位机制。[Rasterio 重采样](https://rasterio.readthedocs.io/en/stable/topics/resampling.html)
 
-绘制同 CRS 栅格与矢量时，用显式重投影与共同范围。有效零值保持色表中的对应颜色。坏值使用独立灰色、透明度或淡纹理，图注说明来源。显示裁剪可设置 `extend` 提示饱和，保留原始数据以供统计。
+绘制同 CRS 栅格与矢量时，用显式重投影与共同范围。有效零值保持色表中的对应颜色。按研究区范围分开外部纯白或透明背景与内部缺测。连续地图的内部显著缺测使用中性浅灰并在图注说明。零值色接近白色时，可加细线标出研究区边界。显示裁剪按 [版式与导出](style-and-export.md) 设置 `extend`，保留原始数据以供统计。
 
 ## 真彩色和假彩色
 
@@ -56,18 +56,24 @@ from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Patch
 
 # codes、names、colors 按原数据图例定义。classes 为读出的掩膜数组。
+# study_mask 为同网格布尔数组，True 表示研究区内部。
+source_missing = np.ma.getmaskarray(classes)
 display = np.ma.masked_all(classes.shape, dtype=np.int16)
 for index, code in enumerate(codes):
-    display[np.ma.filled(classes == code, False)] = index
-if np.any(np.ma.getmaskarray(display) & ~np.ma.getmaskarray(classes)):
+    display[study_mask & np.ma.filled(classes == code, False)] = index
+if np.any(study_mask & np.ma.getmaskarray(display) & ~source_missing):
     raise ValueError("图例编码缺少有效地类")
-palette = ListedColormap(colors).with_extremes(bad="#D9D9D9")
-norm = BoundaryNorm(np.arange(len(codes) + 1) - 0.5, palette.N)
+entries = list(zip(names, colors))
+inside_missing = study_mask & source_missing
+if inside_missing.any():
+    display[inside_missing] = len(entries)
+    entries.append(("无数据", "#D9D9D9"))
+palette = ListedColormap([color for _, color in entries]).with_extremes(bad="none")
+norm = BoundaryNorm(np.arange(palette.N + 1) - 0.5, palette.N)
 ax.imshow(display, extent=extent, origin="upper", cmap=palette, norm=norm,
           interpolation="nearest", rasterized=True)
 handles = [Patch(facecolor=color, edgecolor="0.3", linewidth=0.45, label=name)
-           for name, color in zip(names, colors)]
-handles.append(Patch(facecolor="#D9D9D9", edgecolor="0.3", linewidth=0.45, label="无数据"))
+           for name, color in entries]
 ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1))
 ```
 
@@ -75,25 +81,44 @@ ax.legend(handles=handles, loc="upper left", bbox_to_anchor=(1.05, 1))
 
 ## 变化、距平、趋势与显著性
 
-- 先定义变化方向、参考期、物理单位和有效像元交集。以 `TwoSlopeNorm(vmin=…, vcenter=0, vmax=…)` 将零对齐中性色。采用其他参考值时标明含义。确保 `vmin < vcenter < vmax`；对于单侧或全零样本，依据物理阈值构造以参考点为中心的范围。
-- 并排地图若需比较同幅增减，采用一致上限与下限。若用分位数截尾，注明阈值并让色条端部显示 `extend` 或其他明确的溢出标记。
+- **物理主导语义优先于偶发极值。** 若 NPP 等生产力指标主体非负，且仅有少量略为负值并已核实来自边缘效应或噪声，默认沿用顺序色表与 `Normalize(vmin=0, vmax=…)`，保留主体范围的颜色对比。显示下限与统计质控分别记录，核对实际负值比例及来源。
+- 对有正负方向的净交换、变化、距平或趋势，先定义方向、参考期、物理单位和有效像元交集。用 `TwoSlopeNorm(vmin=…, vcenter=0, vmax=…)` 将零对齐中性色。采用其他参考值时标明含义。确保 `vmin < vcenter < vmax`，物理中心两侧的阈值由同组对比口径确定。
+- 并排地图若需比较同幅增减，采用一致上下限。对称发散色标任一端截断时用 `extend="both"`，并注明实际截断方向和阈值。对称端点能覆盖有效值时用 `extend="neither"`。
 - 统计显著性层与数值网格严格对齐。取有效数据和通过检验的掩膜交集，例如 `(p < 0.05)`。在像元中心画稀疏 stippling，或用 `contourf` 的 hatch 表示相连区域。QA 核对示例真阳性区域和掩膜边界。
 - 图注注明检验方法、样本数或时段、显著性阈值、是否校正多重比较、打点降采样方式。显著性与效应量分别表达。
 
 ```python
 import numpy as np
-from matplotlib.colors import TwoSlopeNorm
+from matplotlib.colors import ListedColormap, TwoSlopeNorm
 from geo_fig_kit import get_cmap_safe
 
 # x、y 是规则网格 1D 像元中心。change 与 p_value 同网格，同方向。
-valid = np.isfinite(np.ma.filled(np.ma.asarray(change, dtype=float), np.nan))
+# study_mask 为同网格布尔数组，True 表示研究区内部。
+field = np.ma.masked_where(~study_mask, np.ma.masked_invalid(np.ma.asarray(change, dtype=float)))
+inside_missing = study_mask & np.ma.getmaskarray(field)
+if inside_missing.any():
+    missing_layer = np.ma.masked_where(~inside_missing, np.ones(field.shape))
+    gray = ListedColormap(["#D9D9D9"]).with_extremes(bad="none")
+    ax.imshow(missing_layer, extent=extent, origin="upper", cmap=gray,
+              interpolation="nearest", rasterized=True)
 # span 是同组图共用的正值，依据数据范围或物理阈值预先确定。
 norm = TwoSlopeNorm(vmin=-span, vcenter=0, vmax=span)
-image = ax.imshow(change, extent=extent, origin="upper", norm=norm,
-                  cmap=get_cmap_safe("vik").with_extremes(bad="#A8ADB3"), rasterized=True)
-significant = valid & np.ma.filled(np.ma.asarray(p_value) < 0.05, False)
+image = ax.imshow(field, extent=extent, origin="upper", norm=norm,
+                  cmap=get_cmap_safe("vik").with_extremes(bad="none"),
+                  interpolation="nearest", rasterized=True)
+significant = ~np.ma.getmaskarray(field) & np.ma.filled(np.ma.asarray(p_value) < 0.05, False)
 rows, cols = np.nonzero(significant[::step, ::step])  # step 为经预览确认的稀疏步长
 ax.scatter(x[cols * step], y[rows * step], s=1.0, c="0.17", linewidths=0, rasterized=True)
+```
+
+### 可选的统计摘要框
+
+需要报告区域均值、总量或有效覆盖率时，可调用 `add_stats_box()`。使用已核验的单位与统计口径，均值和总量按需要采用像元面积加权。只在确认有空白的角落使用，避免盖住研究区主体、色条、比例尺或指北针。空间不足时把摘要放到图注。
+
+```python
+from geo_fig_kit import add_stats_box
+
+add_stats_box(ax, ["Mean: 412.5 g C m⁻² yr⁻¹", "Total: 2.71 Tg C yr⁻¹"], loc="upper left")
 ```
 
 ## DEM 与山体阴影

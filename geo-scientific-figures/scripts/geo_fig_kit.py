@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
     from matplotlib.image import AxesImage
     from matplotlib.lines import Line2D
+    from matplotlib.offsetbox import AnchoredText
     from matplotlib.text import Annotation
     from matplotlib.transforms import Bbox
     from numpy.typing import ArrayLike, NDArray
@@ -75,17 +76,22 @@ SCI_PALETTE: dict[str, str] = {
 }
 
 _CMAPS: dict[str, tuple[str, str]] = {
-    "batlow": ("cmcrameri", "viridis"), "lajolla": ("cmcrameri", "inferno"),
+    "batlow": ("cmcrameri", "viridis"), "lajolla": ("cmcrameri", "YlOrRd"),
     "oslo": ("cmcrameri", "cividis"), "davos": ("cmcrameri", "cividis"),
-    "oleron": ("cmcrameri", "cividis"), "vik": ("cmcrameri", "coolwarm"),
-    "broc": ("cmcrameri", "coolwarm"), "cork": ("cmcrameri", "coolwarm"),
-    "thermal": ("cmocean", "inferno"), "haline": ("cmocean", "cividis"),
-    "deep": ("cmocean", "viridis"), "rain": ("cmocean", "cividis"),
-    "algae": ("cmocean", "viridis"), "matter": ("cmocean", "magma"),
+    "oleron": ("cmcrameri", "cividis"), "vik": ("cmcrameri", "RdBu_r"),
+    "broc": ("cmcrameri", "BrBG"), "cork": ("cmcrameri", "BrBG"),
+    "thermal": ("cmocean", "YlOrRd"), "haline": ("cmocean", "cividis"),
+    "deep": ("cmocean", "YlGnBu"), "rain": ("cmocean", "YlGnBu"),
+    "algae": ("cmocean", "YlGn"), "matter": ("cmocean", "magma"),
     "balance": ("cmocean", "coolwarm"), "delta": ("cmocean", "coolwarm"),
 }
-_SEQUENTIAL = {"viridis", "cividis", "plasma", "inferno", "magma"}
-_DIVERGING = {"coolwarm", "vik", "broc", "cork", "balance", "delta"}
+_BUILTIN_SEQUENTIAL = (
+    "viridis", "cividis", "plasma", "inferno", "magma",
+    "YlGn", "YlGnBu", "YlOrRd", "Blues", "Greens", "BuGn", "OrRd", "PuBuGn",
+)
+_BUILTIN_DIVERGING = ("coolwarm", "RdBu", "BrBG", "PuOr", "PRGn", "PiYG", "RdYlBu")
+_BUILTIN_CMAPS = {name.casefold(): name for name in (*_BUILTIN_SEQUENTIAL, *_BUILTIN_DIVERGING)}
+_DIVERGING = {name.casefold() for name in _BUILTIN_DIVERGING} | {"vik", "broc", "cork", "balance", "delta"}
 _BANNED = {"jet", "rainbow", "hsv", "gist_rainbow"}
 _OPTIONAL = {
     "rasterio": "rasterio", "geopandas": "geopandas", "cartopy": "cartopy",
@@ -225,6 +231,22 @@ def add_panel_label(
     )
 
 
+def add_stats_box(
+    ax: Axes, lines: str | Sequence[str], loc: str = "upper left",
+    fontsize: float | None = None, alpha: float = 0.82,
+) -> AnchoredText:
+    """按需在面板角落添加半透明圆角统计框，并返回可继续调整的对象。"""
+    from matplotlib.offsetbox import AnchoredText
+
+    text = lines if isinstance(lines, str) else "\n".join(lines)
+    box = AnchoredText(text, loc=loc, prop={"size": "small" if fontsize is None else fontsize},
+                       pad=0.3, frameon=True)
+    box.patch.set(facecolor="white", edgecolor="0.65", linewidth=0.5, alpha=alpha)
+    box.patch.set_boxstyle("round,pad=0,rounding_size=0.2")
+    ax.add_artist(box)
+    return box
+
+
 def get_cmap_safe(name: str, fallback: str = "viridis") -> Colormap:
     """选用科学色表，缺可选库时使用匹配类型的 Matplotlib 色表。"""
     import matplotlib as mpl
@@ -234,19 +256,22 @@ def get_cmap_safe(name: str, fallback: str = "viridis") -> Colormap:
     reverse = key.endswith("_r")
     if base in _BANNED:
         warnings.warn(f"禁用色表 {name!r}，改用安全色表。", stacklevel=2)
-    elif base in _SEQUENTIAL or base == "coolwarm":
-        return mpl.colormaps[key]
+    elif base in _BUILTIN_CMAPS:
+        return mpl.colormaps[_BUILTIN_CMAPS[base] + ("_r" if reverse else "")]
     elif base in _CMAPS:
         module, default = _CMAPS[base]
         try:
             cmap = getattr(_require(f"{module}.cm", module), base)
         except (_DependencyError, AttributeError):
-            cmap = mpl.colormaps[default]
+            if reverse:
+                default = default.removesuffix("_r") if default.endswith("_r") else f"{default}_r"
+            return mpl.colormaps[default]
         return cmap.reversed() if reverse else cmap
     else:
         warnings.warn(f"色表 {name!r} 未收录，改用安全色表。", stacklevel=2)
     safe = fallback.strip().casefold()
-    if safe.removesuffix("_r") not in _CMAPS.keys() | _SEQUENTIAL | {"coolwarm"}:
+    safe_base = safe.removesuffix("_r")
+    if safe_base not in _CMAPS and safe_base not in _BUILTIN_CMAPS:
         safe = "viridis"
     return get_cmap_safe(safe)
 
@@ -546,8 +571,9 @@ def make_heatmap(
         raise ValueError("行列标签数须与矩阵形状一致。")
 
     if center_zero:
-        if cmap.casefold().removesuffix("_r") not in _DIVERGING:
-            if cmap.casefold() != "viridis":
+        cmap_key = cmap.strip().casefold()
+        if cmap_key.removesuffix("_r") not in _DIVERGING:
+            if cmap_key != "viridis":
                 warnings.warn(f"居中色标使用发散色表，已将 {cmap!r} 换为 'vik'。", stacklevel=2)
             cmap = "vik"
         span = float(np.max(np.abs(values.compressed()), initial=0)) or 1.0
@@ -591,11 +617,22 @@ def save_figure(
     stem.parent.mkdir(parents=True, exist_ok=True)
     if tight:
         fig.canvas.draw()
-        extent = fig.get_tightbbox(fig.canvas.get_renderer()) if hasattr(fig.canvas, "get_renderer") else None
-        width, height = fig.get_size_inches()
-        if extent is not None and (extent.x0 < pad_inches or extent.y0 < pad_inches
-                                   or extent.x1 > width - pad_inches or extent.y1 > height - pad_inches):
-            warnings.warn("画布边缘留白不足或内容可能被裁切，请调整布局并检查预览。", stacklevel=2)
+        extent = fig.get_tightbbox()
+        if extent is not None:
+            width, height = fig.get_size_inches()
+            left, right = extent.x0, width - extent.x1
+            bottom, top = extent.y0, height - extent.y1
+            if min(left, right, bottom, top) < pad_inches:
+                warnings.warn("画布边缘留白不足或内容可能被裁切，请调整布局并检查预览。", stacklevel=2)
+            dimensions = (
+                ("横向", extent.width / width, max(left, right)),
+                ("纵向", extent.height / height, max(bottom, top)),
+            )
+            excess = [f"{axis}内容占 {coverage:.1%}，最大白边 {margin:.2f} in"
+                      for axis, coverage, margin in dimensions if coverage < 0.78 and margin > 0.45]
+            if excess:
+                warnings.warn(f"画布白边过宽（{' / '.join(excess)}）。请保持成品宽度，收紧画布高度或外边距。",
+                              stacklevel=2)
 
     targets = [(stem.parent / f"{stem.name}.{ext}", ext, dpi) for ext in requested]
     if preview_dpi is not None:

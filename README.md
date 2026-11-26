@@ -1,13 +1,13 @@
 # codex-skills
-My own codex skills(private)
+
+面向地理、遥感与学术科研工作流的个人 Codex Skills 集合（涵盖英文多源文献检索与出版级地学科研制图）。
 
 ## 技能总览
 
-| 技能 | 目录 | 定位 | 状态 |
-| --- | --- | --- | --- |
-| **litsearch** | [litsearch](litsearch/) | 多源英文学术文献检索、去重汇总与基于摘要的相关性分级 | 日常使用 |
-| **geo-scientific-figures** | [geo-scientific-figures](geo-scientific-figures/) | 地理、遥感与地球科学出版级 Python 静态制图（地图 + 统计 + 复合图） | 日常使用 |
-| **scientific-figure-making** | [scientific-figure-making](scientific-figure-making/) | 旧版通用科研统计制图技能 | 历史备份 |
+| 技能 | 目录 | 定位 |
+| --- | --- | --- |
+| **litsearch** | [litsearch](litsearch/) | 多源英文学术文献检索、去重汇总与基于摘要的相关性分级 |
+| **geo-scientific-figures** | [geo-scientific-figures](geo-scientific-figures/) | 地理、遥感与地球科学出版级 Python 静态制图（地图 + 统计 + 复合图） |
 
 ## 技能简介
 
@@ -18,7 +18,7 @@ My own codex skills(private)
 - **多源聚合与去重**：内置 OpenAlex、Crossref、DOAJ、CORE、arXiv、USGS、NASA NTRS、Unpaywall 等免费源，并可选接入 Google Scholar（SerpApi / SearchApi）与 OpenCitations，自动去重合并。
 - **诚实覆盖缺口报告**：每次检索均输出各数据源状态，明确标示失败或跳过的来源，不假装完整。
 - **结构化检索与分级流**：支持将中文问题拆分为多组英文概念块检索、依据首轮题名与摘要补检合并，并按固定标准生成**全量清单 + AI 基于摘要筛选的高价值清单 + 反向漏检提醒**。
-- **详细说明**：见 [litsearch/SKILL.md](litsearch/SKILL.md) 与 [新电脑配置指南](litsearch/INSTALL.md)。
+- **详细说明**：见 [litsearch/SKILL.md](litsearch/SKILL.md) 与 [配置指南](litsearch/INSTALL.md)。
 
 ### 2. [geo-scientific-figures](geo-scientific-figures/) — 地理与遥感科研制图
 
@@ -30,21 +30,23 @@ My own codex skills(private)
 - **可复现随图脚本**：每次出图均在图件同目录保存可独立重跑的 `.py` 脚本，并在顶部集中标注中文可调参数区（字号、配色、范围、间距等），方便自行快速微调。
 - **详细说明**：见 [geo-scientific-figures/SKILL.md](geo-scientific-figures/SKILL.md)。
 
-## 科研制图技能
+## 快速安装
 
-- **日常使用版** · [geo-scientific-figures](geo-scientific-figures/)。用于地理、遥感与地球科学的统计图、专题地图和复合图。安装和日常制图请选这个版本。
-- **历史备份** · [scientific-figure-making](scientific-figure-making/)。仅作旧版归档。
+### 安装 `litsearch`
 
-## 在新电脑安装 litsearch
-
-先用有权读取此私人仓库的 GitHub 账号登录 Git，然后把下面这句话发给工位电脑上的 Codex：
+把下面这句话发给 Codex：
 
 > 请从 https://github.com/yanbinni/codex-skills 的 `litsearch` 子目录安装技能。安装后请读取该目录的 INSTALL.md，运行离线检查，并引导我在本机配置所需的数据源。
 
-具体字段、申请入口和验证命令见 [litsearch 新电脑配置指南](litsearch/INSTALL.md)。
+具体字段、申请入口和验证命令见 [litsearch 配置指南](litsearch/INSTALL.md)。
 
-## 在新电脑安装 geo-scientific-figures
+### 安装 `geo-scientific-figures`
 
-同样在登录 Git 后，把下面这句话发给 Codex：
+把下面这句话发给 Codex：
 
 > 请从 https://github.com/yanbinni/codex-skills 的 `geo-scientific-figures` 子目录安装技能。安装后请运行 `python scripts/geo_fig_kit.py doctor` 检查本机 Python 地理依赖与中英文字体。
+
+## 演进说明、致谢与许可
+
+- **历史版本致谢**：本仓库早期曾包含一个基于 [ChenLiu-1996/figures4papers](https://github.com/ChenLiu-1996/figures4papers) 改写的科研制图技能备份（原 `scientific-figure-making`），特此向原作者致谢。现已针对地理与遥感领域全面独立重构为 [geo-scientific-figures](geo-scientific-figures/)，并已将旧版归档目录移除。
+- **开源许可**：本仓库采用 [MIT License](LICENSE)。
